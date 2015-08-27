@@ -9,40 +9,70 @@ import org.vertx.testtools.TestVerticle;
 import org.vertx.testtools.VertxAssert;
 
 import java.io.IOException;
-import java.util.Timer;
+import java.util.ArrayList;
 
 public class ChatTest extends TestVerticle {
 
     int msg = 0;
+    long start = 0;
+    //int[] messages  = new int[6];
+    ArrayList<Integer> messagesList = new ArrayList<Integer>();
 
     @Test
-    public void testClients() {
-        int users = 10;
-        int totalMesssages = 5000;
-        int time = 5000;
-        int extra = 1000;
-        listenerClient("user", time+extra, totalMesssages);
+    public void test1(){test();}
+    @Test
+    public void test2(){test();}
+    @Test
+    public void test3(){test();}
+    @Test
+    public void test4(){test();}
+    @Test
+    public void test5(){test();}
+
+    public void test(){
+        testClients(50, 25000, 5000, 10000);
+        //testClientsMax(10, 4000, 10000);
+    }
+
+    public void testClients(int users, long totalMessages, long time, int extra) {
+        msg = 0;
+        listenerClient("user", time + extra, totalMessages);
         for (int i = 0; i<users; i++){
-            senderClient("user"+Integer.toString(i), (time/(totalMesssages/users)), time);
+            senderClient("user"+Integer.toString(i), (time/(totalMessages/users)), time);
         }
     }
 
-    public void senderClient(final String name, final int waitTime, final int totalTime) {
+    public void testClientsMax(int users, long time, int extra) {
+        /**int users = 10;
+         int totalMessages = 5000;
+         int time = 5000;
+         int extra = 1000;**/
+        msg = 0;
+        listenerClient("user", time + extra, users*time);
+        for (int i = 0; i<users; i++){
+            senderClient("user"+Integer.toString(i), 1, time);
+        }
+    }
+
+    public void senderClient(final String name, final long waitTime, final long totalTime) {
+        //System.out.println(waitTime+" "+totalTime);
         // Setting host as localhost is not strictly necessary as it's the default
         vertx.createHttpClient().setHost("localhost").setPort(9000).connectWebsocket("/chat", new Handler<WebSocket>() {
+            //vertx.createHttpClient().setHost("192.168.1.145").setPort(9000).connectWebsocket("/chat", new Handler<WebSocket>() {
+            //vertx.createHttpClient().setHost("192.168.1.69").setPort(9000).connectWebsocket("/chat", new Handler<WebSocket>() {
             @Override
             public void handle(final WebSocket websocket) {
                 websocket.dataHandler(new Handler<Buffer>() {
                                           public void handle(Buffer data) {
                                               /**JsonNode message = null;
-                                              ObjectMapper mapper = new ObjectMapper();
-                                              try {
-                                                  message = mapper.readTree(data.getBytes());  //message to Json
-                                              } catch (IOException e) {
-                                                  e.printStackTrace();
-                                              }
-                                              String respuesta = message.get("message").toString();
-                                              System.out.println(data);**/
+                                               ObjectMapper mapper = new ObjectMapper();
+                                               try {
+                                               message = mapper.readTree(data.getBytes());  //message to Json
+                                               } catch (IOException e) {
+                                               e.printStackTrace();
+                                               }
+                                               String respuesta = message.get("message").toString();
+                                               System.out.println(data);**/
                                               //VertxAssert.assertEquals("\"Devuelve algo?\"", respuesta);
                                               //VertxAssert.testComplete();
 
@@ -58,7 +88,7 @@ public class ChatTest extends TestVerticle {
                 final long timerID = vertx.setPeriodic(waitTime, new Handler<Long>() {
                     public void handle(Long arg0) {
                         JsonObject json2 = new JsonObject();
-                        json2.putString("user", "user");
+                        json2.putString("user", name);
                         json2.putString("message", "wololo");
                         websocket.writeTextFrame(json2.toString());
                     }
@@ -74,7 +104,7 @@ public class ChatTest extends TestVerticle {
         });
     }
 
-    public void listenerClient(final String name, final int totalTime, final int messages) {
+    public void listenerClient(final String name, final long totalTime, final long messages) {
         // Setting host as localhost is not strictly necessary as it's the default
         vertx.createHttpClient().setHost("localhost").setPort(9000).connectWebsocket("/chat", new Handler<WebSocket>() {
             @Override
@@ -91,7 +121,11 @@ public class ChatTest extends TestVerticle {
                                               String respuesta = message.get("message").toString();
 
                                               msg++;
-                                              System.out.println(msg);
+                                              if (messages == msg) {
+                                                  System.out.println("Tiempo:  " + (System.currentTimeMillis() - start));
+                                                  VertxAssert.testComplete();
+                                              }
+                                              //System.out.println(msg);
                                               //VertxAssert.assertEquals("\"Devuelve algo?\"", respuesta);
                                               //VertxAssert.testComplete();
 
@@ -103,10 +137,12 @@ public class ChatTest extends TestVerticle {
                 json.putString("chat", "chat");
                 json.putString("user", name);
                 websocket.writeTextFrame(json.toString());
-                vertx.setTimer(totalTime, new Handler<Long>()
-                        {
+                start = System.currentTimeMillis();
+                vertx.setTimer(totalTime, new Handler<Long>() {
                             public void handle(Long arg0) {
-                                VertxAssert.assertEquals(msg,messages);
+                                System.out.println("Tiempo:  " + (System.currentTimeMillis() - start));
+                                VertxAssert.assertEquals(messages, msg);
+                                System.out.println(msg + "/" + messages);
                                 VertxAssert.testComplete();
                             }
                         }
