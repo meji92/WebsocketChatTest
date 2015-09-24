@@ -1,5 +1,6 @@
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.junit.Test;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
@@ -19,57 +20,70 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ChatTest extends TestVerticle {
 
     AtomicInteger msg = new AtomicInteger(0);
+    AtomicInteger done = new AtomicInteger(0);
     long start = 0;
     AtomicInteger sentMessages = new AtomicInteger(0);
     String ip = "192.168.1.130";
-    boolean akka = false;
-    boolean[] recievedMessages;
-    int users = 40;
+    boolean akka = true;
+    boolean haproxy = false;
+    int users = 3;
     int messages = 500;
     int time = 5000;
-    int extra = 100000;
+    int extra = 10000;
+    String chatName = "chat" + Double.toString(Math.random());
+
     @Test
-    public void test1(){
+    public void test1() {
         test();
     }
+
     @Test
-    public void test2(){
+    public void test2() {
         test();
     }
+
     @Test
-    public void test3(){
+    public void test3() {
         test();
     }
+
     @Test
-    public void test4(){
+    public void test4() {
         test();
     }
+
     @Test
-    public void test5(){
+    public void test5() {
         test();
     }
+
     @Test
-    public void test6(){
+    public void test6() {
         test();
     }
+
     @Test
-    public void test7(){
+    public void test7() {
         test();
     }
+
     @Test
-    public void test8(){
+    public void test8() {
         test();
     }
+
     @Test
-    public void test01(){
+    public void test01() {
         test();
     }
+
     @Test
-    public void test0(){
+    public void test0() {
         test();
     }
+
     @Test
-    public void test9(){
+    public void test9() {
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
@@ -88,9 +102,9 @@ public class ChatTest extends TestVerticle {
             String line = br.readLine();
 
             while (line != null) {
-                System.out.print(result +" + "+line);
+                System.out.print(result + " + " + line);
                 result += Long.parseLong(line);
-                System.out.println(" = "+result);
+                System.out.println(" = " + result);
                 line = br.readLine();
             }
         } catch (IOException e) {
@@ -102,7 +116,7 @@ public class ChatTest extends TestVerticle {
                 e.printStackTrace();
             }
         }
-        System.out.println (result/10);
+        System.out.println(result / 10);
         PrintWriter writer = null;
         try {
             writer = new PrintWriter("results.txt", "UTF-8");
@@ -118,15 +132,14 @@ public class ChatTest extends TestVerticle {
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
-        writer2.append(Integer.toString(users)+" "+Long.toString(result/10)+"\n");
+        writer2.append(Integer.toString(users) + " " + Long.toString(result / 10) + "\n");
         writer2.close();
         VertxAssert.testComplete();
     }
 
 
-
-    public void test(){
-        recievedMessages = new boolean[messages*users];
+    public void test() {
+        //System.out.println(chatName);
         start = 0;
         try {
             Thread.sleep(1000);
@@ -139,62 +152,81 @@ public class ChatTest extends TestVerticle {
 
     public void testClients(int users, long messages, long time, int extra) {
         //listenerClientHalfTime("LUser"+Double.toString((Math.random()*100)), time + extra, totalMessages*2);
-        listenerClient("/////////////////////////////////////////////User" + Double.toString(Math.random()), time + extra, messages * users);
-        for (int i = 0; i<users; i++){
+        //listenerClient("/////////////////////////////////////////////User" + Double.toString(Math.random()), time + extra, messages * users);
+        for (int i = 0; i < users; i++) {
             //senderClient("user" + Double.toString(i + (Math.random() * 100)), (time / (totalMessages / users)), time);
-            senderClient("user" + Double.toString(i + Math.random()), time/messages, time);
+            //senderClient("user" + Double.toString(i + Math.random()), time/messages, time);
+            client("User" + Double.toString(Math.random()), time + extra, messages * users * users, time / messages, time);
         }
     }
 
-    public void testClientsMax(int users, long time, int extra) {
-        /**int users = 10;
-         int totalMessages = 5000;
-         int time = 5000;
-         int extra = 1000;**/
-        listenerClient("user", time + extra, users * time);
-        for (int i = 0; i<users; i++){
-            senderClient("user"+Double.toString(i+(Math.random()*100)), 1, time);
-        }
-    }
-
-    public void senderClient(final String name, final long waitTime, final long totalTime) {
-        //System.out.println(waitTime+" "+totalTime);
-        // Setting host as localhost is not strictly necessary as it's the default
-        final String auxip;
+    public void client(final String name, final long totalTime, final long messages, final long waitTime, final long sendTime) {
+        final Boolean[] recievedMessages = new Boolean[(int) messages];
+        String auxip;
+        final AtomicInteger numberOfMessages = new AtomicInteger(0);
         if (akka == true) {
             auxip = getIP();
-        }else{
+        } else {
             auxip = ip;
         }
-        vertx.setTimer(1000, new Handler<Long>() {
-            public void handle(Long arg0) {
-                vertx.createHttpClient().setHost(auxip).setPort(9000).connectWebsocket("/chat", new Handler<WebSocket>() {
-                    //vertx.createHttpClient().setHost("192.168.43.225").setPort(8080).connectWebsocket("/myapp", new Handler<WebSocket>() {
-                    @Override
-                    public void handle(final WebSocket websocket) {
-                        websocket.dataHandler(new Handler<Buffer>() {
-                                                  public void handle(Buffer data) {
-                                                      /**JsonNode message = null;
-                                                       ObjectMapper mapper = new ObjectMapper();
-                                                       try {
-                                                       message = mapper.readTree(data.getBytes());  //message to Json
-                                                       } catch (IOException e) {
-                                                       e.printStackTrace();
-                                                       }
-                                                       String respuesta = message.get("message").toString();
-                                                       System.out.println(data);**/
+        vertx.createHttpClient().setHost(auxip).setPort(9000).connectWebsocket("/chat", new Handler<WebSocket>() {
+            //vertx.createHttpClient().setHost("192.168.43.225").setPort(8080).connectWebsocket("/myapp", new Handler<WebSocket>() {
+            @Override
+            public void handle(final WebSocket websocket) {
+                websocket.dataHandler(new Handler<Buffer>() {
+                                          public void handle(Buffer data) {
+                                              JsonNode message = null;
+                                              ObjectMapper mapper = new ObjectMapper();
+                                              try {
+                                                  message = mapper.readTree(data.getBytes());  //message to Json
+                                              } catch (IOException e) {
+                                                  e.printStackTrace();
+                                              }
+                                              String respuesta = message.get("message").asText();
+                                              recievedMessages[Integer.parseInt(respuesta)] = true;
+                                              msg.addAndGet(1);
+                                              numberOfMessages.addAndGet(1);
+                                              if (numberOfMessages.get()==(messages/users)) {
+                                                  done.addAndGet(1);
+                                                  System.out.println(msg.get() + "/" + messages + "/" + Integer.toString(sentMessages.get()));
+                                                  Boolean ok = true;
+                                                  for (int i = 0; i < recievedMessages.length; i++) {
+                                                      if (recievedMessages[i] = false) {
+                                                          System.out.println("Falta: " + Integer.toString(i));
+                                                          ok = false;
+                                                      }
+                                                  }
+                                                  websocket.close();
+                                                  VertxAssert.assertTrue(ok);
+                                                  if (done.get() == users) {
+                                                      long time = System.currentTimeMillis() - start;
+                                                      PrintWriter writer = null;
+                                                      try {
+                                                          writer = new PrintWriter(new FileOutputStream(new File("results.txt"), true));
+                                                      } catch (FileNotFoundException e) {
+                                                          e.printStackTrace();
+                                                      }
+                                                      writer.append(Long.toString(time) + "\n");
+                                                      writer.close();
+                                                      System.out.println("Tiempo:  " + time);
+                                                      VertxAssert.testComplete();
                                                   }
                                               }
+                                          }
+                                      }
 
-                        );
-                        JsonObject json = new JsonObject();
-                        json.putString("chat", "chat");
-                        json.putString("user", name);
+                );
+                JsonObject json = new JsonObject();
+                json.putString("chat", chatName);
+                json.putString("user", name);
+                websocket.writeTextFrame(json.toString());
+
+                //SENDER ADDED
+                vertx.setTimer(1000, new Handler<Long>() {
+                    public void handle(Long arg0) {
                         if (start == 0) {
                             start = System.currentTimeMillis();
                         }
-                        websocket.writeTextFrame(json.toString());
-                        // Wait 1 second to be sure that the dataHandler has been created
                         final long timerID = vertx.setPeriodic(waitTime, new Handler<Long>() {
                             public void handle(Long arg0) {
                                 JsonObject json2 = new JsonObject();
@@ -203,106 +235,39 @@ public class ChatTest extends TestVerticle {
                                 websocket.writeTextFrame(json2.toString());
                             }
                         });
-                        vertx.setTimer(totalTime, new Handler<Long>() {
-                                    public void handle(Long arg0) {
-                                        vertx.cancelTimer(timerID);
-                                        //System.out.println(name+": "+Integer.toString(sentMessages));
-                                    }
-                                }
 
-                        );
+                        vertx.setTimer(sendTime, new Handler<Long>() {
+                            public void handle(Long arg0) {
+                                vertx.cancelTimer(timerID);
+                            }
+                        });
                     }
                 });
+                ////////////////////////////////////////////////////////
+
+                vertx.setTimer(totalTime, new Handler<Long>() {
+                            public void handle(Long arg0) {
+                                    System.out.println(msg.get() + "/" + messages + "/" + Integer.toString(sentMessages.get()));
+                                    VertxAssert.fail();
+                                    VertxAssert.testComplete();
+                            }
+                        }
+
+                );
             }
         });
     }
 
-            public void listenerClient(final String name, final long totalTime, final long messages) {
-                // Setting host as localhost is not strictly necessary as it's the default
-                String auxip;
-                if (akka == true) {
-                    auxip = getIP();
-                }else{
-                    auxip = ip;
-                }
-                vertx.createHttpClient().setHost(auxip).setPort(9000).connectWebsocket("/chat", new Handler<WebSocket>() {
-                    //vertx.createHttpClient().setHost("192.168.43.225").setPort(8080).connectWebsocket("/myapp", new Handler<WebSocket>() {
-                    @Override
-                    public void handle(final WebSocket websocket) {
-                        websocket.dataHandler(new Handler<Buffer>() {
-                                                  public void handle(Buffer data) {
-                                                      JsonNode message = null;
-                                                      ObjectMapper mapper = new ObjectMapper();
-                                                      try {
-                                                          message = mapper.readTree(data.getBytes());  //message to Json
-                                                      } catch (IOException e) {
-                                                          e.printStackTrace();
-                                                      }
-                                                      String respuesta = message.get("message").asText();
-                                                      recievedMessages[Integer.parseInt(respuesta)] = true;
-                                                      msg.addAndGet(1);
-                                                      if (messages == msg.get()) {
-                                                          long time = System.currentTimeMillis() - start;
-                                                          PrintWriter writer = null;
-                                                          try {
-                                                              writer = new PrintWriter(new FileOutputStream(new File("results.txt"), true));
-                                                          } catch (FileNotFoundException e) {
-                                                              e.printStackTrace();
-                                                          }
-                                                          writer.append(Long.toString(time) + "\n");
-                                                          writer.close();
-                                                          System.out.println("Tiempo:  " + time);
-                                                          System.out.println(msg.get() + "/" + messages + "/" + Integer.toString(sentMessages.get()));
-                                                          VertxAssert.testComplete();
-                                                      }
-
-                                                  }
-                                              }
-
-                        );
-                        JsonObject json = new JsonObject();
-                        json.putString("chat", "chat");
-                        json.putString("user", name);
-                        websocket.writeTextFrame(json.toString());
-                        vertx.setTimer(totalTime, new Handler<Long>() {
-                                    public void handle(Long arg0) {
-                                        long time = System.currentTimeMillis() - start;
-                                        PrintWriter writer = null;
-                                        try {
-                                            writer = new PrintWriter(new FileOutputStream(new File("results.txt"), true));
-                                        } catch (FileNotFoundException e) {
-                                            e.printStackTrace();
-                                        }
-                                        writer.append(Long.toString(time) + "\n");
-                                        writer.close();
-                                        System.out.println("Tiempo:  " + time);
-                                        //VertxAssert.assertEquals(messages, msg);
-                                        System.out.println(msg.get() + "/" + messages + "/" + Integer.toString(sentMessages.get()));
-                                        Boolean ok = true;
-                                        for (int i = 0; i < recievedMessages.length; i++) {
-                                            if (recievedMessages[i] == false) {
-                                                System.out.println("Falta: " + Integer.toString(i));
-                                                ok = false;
-                                            } else {
-                                                recievedMessages[i] = false;
-                                            }
-                                        }
-                                        VertxAssert.assertTrue(ok);
-                                        VertxAssert.testComplete();
-                                    }
-                                }
-
-                        );
-                    }
-                });
-            }
-
-
-
     // HTTP GET request
     private String getIP(){
 
-        String url = "http://"+ip+":9000/";
+        String port;
+        if (haproxy){
+            port = "80";
+        }else{
+            port = "9000";
+        }
+        String url = "http://"+ip+":"+port+"/";
 
         URL obj = null;
         try {
@@ -352,8 +317,8 @@ public class ChatTest extends TestVerticle {
             }
         }
         /**while ((inputLine = in.readLine()) != null) {
-            response.append(inputLine);
-        }**/
+         response.append(inputLine);
+         }**/
         try {
             response.append(in.readLine());
         } catch (IOException e) {
@@ -364,60 +329,11 @@ public class ChatTest extends TestVerticle {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        con.disconnect();
         String returnedString = response.substring(response.indexOf("/")+2);
         returnedString = returnedString.substring(0, returnedString.indexOf(":"));
-
+        //System.out.println(returnedString);
         return returnedString;
     }
 
-    public void listenerClientHalfTime(final String name, final long totalTime, final long messages) {
-        // Setting host as localhost is not strictly necessary as it's the default
-        vertx.createHttpClient().setHost(ip).setPort(9000).connectWebsocket("/chat", new Handler<WebSocket>() {
-            //vertx.createHttpClient().setHost("192.168.43.225").setPort(8080).connectWebsocket("/myapp", new Handler<WebSocket>() {
-            @Override
-            public void handle(final WebSocket websocket) {
-                websocket.dataHandler(new Handler<Buffer>() {
-                                          public void handle(Buffer data) {
-                                              JsonNode message = null;
-                                              ObjectMapper mapper = new ObjectMapper();
-                                              try {
-                                                  message = mapper.readTree(data.getBytes());  //message to Json
-                                              } catch (IOException e) {
-                                                  e.printStackTrace();
-                                              }
-                                              String respuesta = message.get("message").asText();
-                                              recievedMessages[Integer.parseInt(respuesta)] = true;
-                                              /**msg++;
-                                               if (messages == msg) {
-                                               System.out.println("Tiempo:  " + (System.currentTimeMillis() - start));
-                                               System.out.println(msg + "/" + messages+ "/" + Integer.toString(sentMessages.get()*2));
-                                               VertxAssert.testComplete();
-                                               }**/
-
-                                          }
-                                      }
-
-                );
-                JsonObject json = new JsonObject();
-                json.putString("chat", "chat");
-                json.putString("user", name);
-                websocket.writeTextFrame(json.toString());
-                start = System.currentTimeMillis();
-                vertx.setTimer(totalTime / 2, new Handler<Long>() {
-                            public void handle(Long arg0) {
-                                //System.out.println("Tiempo:  " + (System.currentTimeMillis() - start));
-                                //VertxAssert.assertEquals(messages, msg);
-                                //System.out.println(msg + "/" + messages+ "/" + Integer.toString(sentMessages.get()*2));
-                                //VertxAssert.testComplete();
-                            }
-                        }
-
-                );
-            }
-        });
-    }
-
 }
-
-
-
