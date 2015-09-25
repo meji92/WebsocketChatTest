@@ -15,21 +15,23 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ChatTest extends TestVerticle {
 
     AtomicInteger msg = new AtomicInteger(0);
+    //AtomicInteger msg2 = new AtomicInteger(0);
     AtomicInteger done = new AtomicInteger(0);
     long start = 0;
     AtomicInteger sentMessages = new AtomicInteger(0);
-    String ip = "192.168.1.130";
-    boolean akka = true;
-    boolean haproxy = false;
-    int users = 3;
+    String ip = "192.168.1.129";
+    boolean akka = false;
+    boolean haproxy = true;
+    int users = 50;
     int messages = 500;
     int time = 5000;
-    int extra = 10000;
+    int extra =180000;
     String chatName = "chat" + Double.toString(Math.random());
 
     @Test
@@ -137,7 +139,6 @@ public class ChatTest extends TestVerticle {
         VertxAssert.testComplete();
     }
 
-
     public void test() {
         //System.out.println(chatName);
         start = 0;
@@ -156,23 +157,25 @@ public class ChatTest extends TestVerticle {
         for (int i = 0; i < users; i++) {
             //senderClient("user" + Double.toString(i + (Math.random() * 100)), (time / (totalMessages / users)), time);
             //senderClient("user" + Double.toString(i + Math.random()), time/messages, time);
-            client("User" + Double.toString(Math.random()), time + extra, messages * users * users, time / messages, time);
+            newclient("User" + Double.toString(Math.random()), time + extra, messages * users * users, messages, time);
         }
     }
 
-    public void client(final String name, final long totalTime, final long messages, final long waitTime, final long sendTime) {
-        final Boolean[] recievedMessages = new Boolean[(int) messages];
-        String auxip;
-        final AtomicInteger numberOfMessages = new AtomicInteger(0);
-        if (akka == true) {
-            auxip = getIP();
-        } else {
-            auxip = ip;
+    public void newclient(final String name, final long totalTime, final long totalMessages, final long messages, final long sendTime) {
+        final Boolean[] recievedMessages = new Boolean[(int) messages*users];
+        for (int e = 0; e < recievedMessages.length; e++){
+            recievedMessages[e] = false;
         }
+        String auxip = getIP();
+        final AtomicInteger numberOfMessages = new AtomicInteger(0);
+        final AtomicBoolean auxDone = new AtomicBoolean(false);
         vertx.createHttpClient().setHost(auxip).setPort(9000).connectWebsocket("/chat", new Handler<WebSocket>() {
             //vertx.createHttpClient().setHost("192.168.43.225").setPort(8080).connectWebsocket("/myapp", new Handler<WebSocket>() {
             @Override
             public void handle(final WebSocket websocket) {
+
+
+
                 websocket.dataHandler(new Handler<Buffer>() {
                                           public void handle(Buffer data) {
                                               JsonNode message = null;
@@ -185,20 +188,24 @@ public class ChatTest extends TestVerticle {
                                               String respuesta = message.get("message").asText();
                                               recievedMessages[Integer.parseInt(respuesta)] = true;
                                               msg.addAndGet(1);
+                                              //msg2.addAndGet(1);
                                               numberOfMessages.addAndGet(1);
-                                              if (numberOfMessages.get()==(messages/users)) {
-                                                  done.addAndGet(1);
-                                                  System.out.println(msg.get() + "/" + messages + "/" + Integer.toString(sentMessages.get()));
+                                              if (numberOfMessages.get()== messages*users){
                                                   Boolean ok = true;
+                                                  //System.out.println("GLOBAL MESSAGES:"+msg.get());
+                                                  //System.out.println("GLOBAL MESSAGES2:"+msg2.get());
+                                                  //System.out.println("NUMBER OF MESSAGES:"+numberOfMessages.get());
                                                   for (int i = 0; i < recievedMessages.length; i++) {
-                                                      if (recievedMessages[i] = false) {
-                                                          System.out.println("Falta: " + Integer.toString(i));
-                                                          ok = false;
-                                                      }
-                                                  }
+                                                   if (recievedMessages[i] == false) {
+                                                   System.out.println("Falta: " + Integer.toString(i));
+                                                   ok = false;
+                                                   }
+                                                   }
                                                   websocket.close();
                                                   VertxAssert.assertTrue(ok);
-                                                  if (done.get() == users) {
+                                                  done.addAndGet(1);
+                                                  if (done.get()==users){
+                                                      System.out.println(msg.get() + "/" + totalMessages + "/" + Integer.toString(sentMessages.get()));
                                                       long time = System.currentTimeMillis() - start;
                                                       PrintWriter writer = null;
                                                       try {
@@ -212,6 +219,7 @@ public class ChatTest extends TestVerticle {
                                                       VertxAssert.testComplete();
                                                   }
                                               }
+
                                           }
                                       }
 
@@ -221,24 +229,25 @@ public class ChatTest extends TestVerticle {
                 json.putString("user", name);
                 websocket.writeTextFrame(json.toString());
 
+
                 //SENDER ADDED
-                vertx.setTimer(1000, new Handler<Long>() {
+                vertx.setTimer(2500, new Handler<Long>() {
                     public void handle(Long arg0) {
                         if (start == 0) {
                             start = System.currentTimeMillis();
                         }
-                        final long timerID = vertx.setPeriodic(waitTime, new Handler<Long>() {
-                            public void handle(Long arg0) {
-                                JsonObject json2 = new JsonObject();
-                                json2.putString("user", name);
-                                json2.putString("message", Integer.toString(sentMessages.getAndAdd(1)));
-                                websocket.writeTextFrame(json2.toString());
-                            }
-                        });
+                        final long timerID = vertx.setPeriodic(sendTime / messages, new Handler<Long>() {
+                            int i = 0;
 
-                        vertx.setTimer(sendTime, new Handler<Long>() {
                             public void handle(Long arg0) {
-                                vertx.cancelTimer(timerID);
+                                if (i < messages) {
+                                    JsonObject json2 = new JsonObject();
+                                    json2.putString("user", name);
+                                    json2.putString("message", Integer.toString(sentMessages.getAndAdd(1)));
+                                    websocket.writeTextFrame(json2.toString());
+                                    i++;
+                                }
+
                             }
                         });
                     }
@@ -247,9 +256,19 @@ public class ChatTest extends TestVerticle {
 
                 vertx.setTimer(totalTime, new Handler<Long>() {
                             public void handle(Long arg0) {
-                                    System.out.println(msg.get() + "/" + messages + "/" + Integer.toString(sentMessages.get()));
-                                    VertxAssert.fail();
+                                //System.out.println(msg.get() + "/"+msg2+"/" + totalMessages + "/" + Integer.toString(sentMessages.get()));
+                                System.out.println("NUMBER OF MESSAGES:" + numberOfMessages.get());
+                                System.out.println("GLOBAL MESSAGES:"+msg.get());
+                                for (int i = 0; i < recievedMessages.length; i++) {
+                                    if (recievedMessages[i] == false) {
+                                        System.out.println("Falta: " + Integer.toString(i));
+                                    }
+                                }
+                                websocket.close();
+                                done.addAndGet(1);
+                                if (done.get()==users){
                                     VertxAssert.testComplete();
+                                }
                             }
                         }
 
@@ -309,16 +328,35 @@ public class ChatTest extends TestVerticle {
         }
 
         StringBuffer response = new StringBuffer();
-        for (int i = 0; i <= 52; i++){
-            try {
-                in.readLine();
-            } catch (IOException e) {
-                e.printStackTrace();
+        if (akka) {
+            for (int i = 0; i <= 52; i++) {
+                try {
+                    in.readLine();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }else {
+            for (int i = 0; i <= 62; i++) {
+                try {
+                    in.readLine();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
-        /**while ((inputLine = in.readLine()) != null) {
-         response.append(inputLine);
-         }**/
+
+        /**String inputLine;
+        try {
+            while ((inputLine = in.readLine()) != null) {
+             response.append(inputLine);
+             }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }**/
+
+
+
         try {
             response.append(in.readLine());
         } catch (IOException e) {
@@ -330,6 +368,7 @@ public class ChatTest extends TestVerticle {
             e.printStackTrace();
         }
         con.disconnect();
+        //System.out.println(response);
         String returnedString = response.substring(response.indexOf("/")+2);
         returnedString = returnedString.substring(0, returnedString.indexOf(":"));
         //System.out.println(returnedString);
