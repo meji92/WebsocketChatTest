@@ -17,127 +17,26 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ChatTest extends TestVerticle {
 
     AtomicInteger msg = new AtomicInteger(0);
+    AtomicLong times = new AtomicLong(0);
     //AtomicInteger msg2 = new AtomicInteger(0);
     AtomicInteger done = new AtomicInteger(0);
     long start = 0;
     AtomicInteger sentMessages = new AtomicInteger(0);
     String ip = "192.168.1.129";
-    boolean akka = false;
-    boolean haproxy = true;
+    //String ip = "chatbalancer-1698952741.eu-west-1.elb.amazonaws.com";
+    boolean akka = true;
+    boolean haproxy = false;
     int users = 50;
     int messages = 500;
     int time = 5000;
     int extra =180000;
     String chatName = "chat" + Double.toString(Math.random());
 
-    @Test
-    public void test1() {
-        test();
-    }
-
-    @Test
-    public void test2() {
-        test();
-    }
-
-    @Test
-    public void test3() {
-        test();
-    }
-
-    @Test
-    public void test4() {
-        test();
-    }
-
-    @Test
-    public void test5() {
-        test();
-    }
-
-    @Test
-    public void test6() {
-        test();
-    }
-
-    @Test
-    public void test7() {
-        test();
-    }
-
-    @Test
-    public void test8() {
-        test();
-    }
-
-    @Test
-    public void test01() {
-        test();
-    }
-
-    @Test
-    public void test0() {
-        test();
-    }
-
-    @Test
-    public void test9() {
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        long result = 0;
-        BufferedReader br = null;
-        try {
-            br = new BufferedReader(new FileReader("results.txt"));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        try {
-            StringBuilder sb = new StringBuilder();
-            String line = br.readLine();
-
-            while (line != null) {
-                System.out.print(result + " + " + line);
-                result += Long.parseLong(line);
-                System.out.println(" = " + result);
-                line = br.readLine();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                br.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        System.out.println(result / 10);
-        PrintWriter writer = null;
-        try {
-            writer = new PrintWriter("results.txt", "UTF-8");
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-        writer.close();
-        PrintWriter writer2 = null;
-        try {
-            writer2 = new PrintWriter(new FileOutputStream(new File("results2.txt"), true));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        writer2.append(Integer.toString(users) + " " + Long.toString(result / 10) + "\n");
-        writer2.close();
-        VertxAssert.testComplete();
-    }
 
     public void test() {
         //System.out.println(chatName);
@@ -157,11 +56,11 @@ public class ChatTest extends TestVerticle {
         for (int i = 0; i < users; i++) {
             //senderClient("user" + Double.toString(i + (Math.random() * 100)), (time / (totalMessages / users)), time);
             //senderClient("user" + Double.toString(i + Math.random()), time/messages, time);
-            newclient("User" + Double.toString(Math.random()), time + extra, messages * users * users, messages, time);
+            newclient2("User" + Double.toString(Math.random()), time + extra, messages * users * users, messages, time);
         }
     }
 
-    public void newclient(final String name, final long totalTime, final long totalMessages, final long messages, final long sendTime) {
+    public void newclient2(final String name, final long totalTime, final long totalMessages, final long messages, final long sendTime) {
         final Boolean[] recievedMessages = new Boolean[(int) messages*users];
         for (int e = 0; e < recievedMessages.length; e++){
             recievedMessages[e] = false;
@@ -186,7 +85,8 @@ public class ChatTest extends TestVerticle {
                                                   e.printStackTrace();
                                               }
                                               String respuesta = message.get("message").asText();
-                                              recievedMessages[Integer.parseInt(respuesta)] = true;
+                                              recievedMessages[Integer.parseInt(respuesta.substring(0,respuesta.indexOf("/")))] = true;
+                                              times.addAndGet(System.currentTimeMillis()-Long.parseLong(respuesta.substring(respuesta.indexOf("/") + 1)));
                                               msg.addAndGet(1);
                                               //msg2.addAndGet(1);
                                               numberOfMessages.addAndGet(1);
@@ -196,17 +96,18 @@ public class ChatTest extends TestVerticle {
                                                   //System.out.println("GLOBAL MESSAGES2:"+msg2.get());
                                                   //System.out.println("NUMBER OF MESSAGES:"+numberOfMessages.get());
                                                   for (int i = 0; i < recievedMessages.length; i++) {
-                                                   if (recievedMessages[i] == false) {
-                                                   System.out.println("Falta: " + Integer.toString(i));
-                                                   ok = false;
-                                                   }
-                                                   }
+                                                      if (recievedMessages[i] == false) {
+                                                          System.out.println("Falta: " + Integer.toString(i));
+                                                          ok = false;
+                                                      }
+                                                  }
                                                   websocket.close();
                                                   VertxAssert.assertTrue(ok);
                                                   done.addAndGet(1);
                                                   if (done.get()==users){
                                                       System.out.println(msg.get() + "/" + totalMessages + "/" + Integer.toString(sentMessages.get()));
-                                                      long time = System.currentTimeMillis() - start;
+                                                      //long time = System.currentTimeMillis() - start;
+                                                      long time = times.get()/totalMessages;
                                                       PrintWriter writer = null;
                                                       try {
                                                           writer = new PrintWriter(new FileOutputStream(new File("results.txt"), true));
@@ -215,7 +116,8 @@ public class ChatTest extends TestVerticle {
                                                       }
                                                       writer.append(Long.toString(time) + "\n");
                                                       writer.close();
-                                                      System.out.println("Tiempo:  " + time);
+                                                      System.out.println("Tiempo:  " + (System.currentTimeMillis() - start));
+                                                      System.out.println("Tiempo medio: "+ times.get()/totalMessages);
                                                       VertxAssert.testComplete();
                                                   }
                                               }
@@ -231,7 +133,7 @@ public class ChatTest extends TestVerticle {
 
 
                 //SENDER ADDED
-                vertx.setTimer(2500, new Handler<Long>() {
+                vertx.setTimer(2000, new Handler<Long>() {
                     public void handle(Long arg0) {
                         if (start == 0) {
                             start = System.currentTimeMillis();
@@ -243,7 +145,7 @@ public class ChatTest extends TestVerticle {
                                 if (i < messages) {
                                     JsonObject json2 = new JsonObject();
                                     json2.putString("user", name);
-                                    json2.putString("message", Integer.toString(sentMessages.getAndAdd(1)));
+                                    json2.putString("message", Integer.toString(sentMessages.getAndAdd(1))+"/"+System.currentTimeMillis());
                                     websocket.writeTextFrame(json2.toString());
                                     i++;
                                 }
@@ -261,12 +163,13 @@ public class ChatTest extends TestVerticle {
                                 System.out.println("GLOBAL MESSAGES:"+msg.get());
                                 for (int i = 0; i < recievedMessages.length; i++) {
                                     if (recievedMessages[i] == false) {
-                                        System.out.println("Falta: " + Integer.toString(i));
+                                        //System.out.println("Falta: " + Integer.toString(i));
                                     }
                                 }
                                 websocket.close();
                                 done.addAndGet(1);
                                 if (done.get()==users){
+                                    VertxAssert.fail();
                                     VertxAssert.testComplete();
                                 }
                             }
@@ -373,6 +276,117 @@ public class ChatTest extends TestVerticle {
         returnedString = returnedString.substring(0, returnedString.indexOf(":"));
         //System.out.println(returnedString);
         return returnedString;
+    }
+
+    @Test
+    public void test1() {
+        test();
+    }
+
+    @Test
+    public void test2() {
+        test();
+    }
+
+    @Test
+    public void test3() {
+        test();
+    }
+
+    @Test
+    public void test4() {
+        test();
+    }
+
+    @Test
+    public void test5() {
+        test();
+    }
+
+    @Test
+    public void test6() {
+        test();
+    }
+
+    @Test
+    public void test7() {
+        test();
+    }
+
+    @Test
+    public void test8() {
+        test();
+    }
+
+    @Test
+    public void test01() {
+        test();
+    }
+
+    @Test
+    public void test02() {
+        test();
+    }
+
+    @Test
+    public void test0() {
+        test();
+    }
+
+    @Test
+    public void test9() {
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        long result = 0;
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader("results.txt"));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        try {
+            StringBuilder sb = new StringBuilder();
+            String line = br.readLine();
+            line = br.readLine();
+
+            while (line != null) {
+                System.out.print(result + " + " + line);
+                result += Long.parseLong(line);
+                System.out.println(" = " + result);
+                line = br.readLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                br.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println(result / 10);
+        PrintWriter writer = null;
+        try {
+            writer = new PrintWriter("results.txt", "UTF-8");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        writer.close();
+        PrintWriter writer2 = null;
+        try {
+            writer2 = new PrintWriter(new FileOutputStream(new File("results2.txt"), true));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        writer2.append(Integer.toString(users) + " " + Long.toString(result / 10) + "\n");
+        writer2.close();
+        VertxAssert.testComplete();
     }
 
 }
